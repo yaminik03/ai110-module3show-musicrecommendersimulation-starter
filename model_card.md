@@ -70,6 +70,8 @@ Prompts:
 - Cases where the system overfits to one preference  
 - Ways the scoring might unintentionally favor some users  
 
+The system shows a clear weakness in how strongly it relies on energy proximity, especially after doubling its weight during the experiment. This causes high-energy songs to dominate the top recommendations, even when genre or mood preferences suggest otherwise. As a result, the model can form an “energy bias,” where users with extreme energy settings receive less diverse and more repetitive suggestions. Additionally, because genre matching is exact rather than fuzzy, similar styles may be excluded unnecessarily. Overall, the system prioritizes a few strong signals too heavily, reducing balance and diversity in the rankings.
+
 ---
 
 ## 7. Evaluation  
@@ -84,6 +86,14 @@ Prompts:
 - Any simple tests or comparisons you ran  
 
 No need for numeric metrics unless you created some.
+
+I tested the recommender using different user profiles, including High-Energy Pop, Chill Lofi, and an Intense/Conflicted profile with mixed preferences. The goal was to see if the system could adapt recommendations to different listening styles and return songs that match each user’s vibe.
+
+I checked whether the top results made sense for each profile and whether certain songs were being overused across different users. Overall, the system worked well for clear preferences, with songs like "SUNRISE CITY" and "LIBRARY RAIN" appearing in the expected contexts.
+
+One surprising result was that “Gym Hero” appeared in many different profiles, even when users were not specifically looking for workout-style music. This happened because energy had a strong influence on the scoring.
+
+I also noticed that in conflicting profiles, the system tended to favor energy over mood, which reduced variety in recommendations.
 
 ---
 

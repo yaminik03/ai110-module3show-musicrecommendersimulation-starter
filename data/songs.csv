@@ -1,11 +1,250 @@
-id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness
-1,Sunrise City,Neon Echo,pop,happy,0.82,118,0.84,0.79,0.18
-2,Midnight Coding,LoRoom,lofi,chill,0.42,78,0.56,0.62,0.71
-3,Storm Runner,Voltline,rock,intense,0.91,152,0.48,0.66,0.10
-4,Library Rain,Paper Lanterns,lofi,chill,0.35,72,0.60,0.58,0.86
-5,Gym Hero,Max Pulse,pop,intense,0.93,132,0.77,0.88,0.05
-6,Spacewalk Thoughts,Orbit Bloom,ambient,chill,0.28,60,0.65,0.41,0.92
-7,Coffee Shop Stories,Slow Stereo,jazz,relaxed,0.37,90,0.71,0.54,0.89
-8,Night Drive Loop,Neon Echo,synthwave,moody,0.75,110,0.49,0.73,0.22
-9,Focus Flow,LoRoom,lofi,focused,0.40,80,0.59,0.60,0.78
-10,Rooftop Lights,Indigo Parade,indie pop,happy,0.76,124,0.81,0.82,0.35
+import { useState, useMemo } from "react";
+
+const songs = [
+  { id:1,  title:"Sunrise City",       artist:"Neon Echo",       genre:"pop",       mood:"happy",   energy:0.82, tempo_bpm:118, valence:0.84, danceability:0.79, acousticness:0.18 },
+  { id:2,  title:"Midnight Coding",    artist:"LoRoom",          genre:"lofi",      mood:"chill",   energy:0.42, tempo_bpm:78,  valence:0.56, danceability:0.62, acousticness:0.71 },
+  { id:3,  title:"Storm Runner",       artist:"Voltline",        genre:"rock",      mood:"intense", energy:0.91, tempo_bpm:152, valence:0.48, danceability:0.66, acousticness:0.10 },
+  { id:4,  title:"Library Rain",       artist:"Paper Lanterns",  genre:"lofi",      mood:"chill",   energy:0.35, tempo_bpm:72,  valence:0.60, danceability:0.58, acousticness:0.86 },
+  { id:5,  title:"Gym Hero",           artist:"Max Pulse",       genre:"pop",       mood:"intense", energy:0.93, tempo_bpm:132, valence:0.77, danceability:0.88, acousticness:0.05 },
+  { id:6,  title:"Spacewalk Thoughts", artist:"Orbit Bloom",     genre:"ambient",   mood:"chill",   energy:0.28, tempo_bpm:60,  valence:0.65, danceability:0.41, acousticness:0.92 },
+  { id:7,  title:"Coffee Shop Stories",artist:"Slow Stereo",     genre:"jazz",      mood:"relaxed", energy:0.37, tempo_bpm:90,  valence:0.71, danceability:0.54, acousticness:0.89 },
+  { id:8,  title:"Night Drive Loop",   artist:"Neon Echo",       genre:"synthwave", mood:"moody",   energy:0.75, tempo_bpm:110, valence:0.49, danceability:0.73, acousticness:0.22 },
+  { id:9,  title:"Focus Flow",         artist:"LoRoom",          genre:"lofi",      mood:"focused", energy:0.40, tempo_bpm:80,  valence:0.59, danceability:0.60, acousticness:0.78 },
+  { id:10, title:"Rooftop Lights",     artist:"Indigo Parade",   genre:"indie pop", mood:"happy",   energy:0.76, tempo_bpm:124, valence:0.81, danceability:0.82, acousticness:0.35 },
+];
+
+const GENRES = [...new Set(songs.map(s => s.genre))];
+const MOODS  = [...new Set(songs.map(s => s.mood))];
+
+const PRESETS = {
+  "Chill lofi fan":  { favorite_genre:"lofi",      favorite_mood:"chill",   target_energy:0.38, target_tempo:76,  target_valence:0.58, target_danceability:0.60, target_acousticness:0.78 },
+  "Intense rocker":  { favorite_genre:"rock",       favorite_mood:"intense", target_energy:0.91, target_tempo:150, target_valence:0.48, target_danceability:0.65, target_acousticness:0.10 },
+  "Happy pop lover": { favorite_genre:"pop",        favorite_mood:"happy",   target_energy:0.84, target_tempo:122, target_valence:0.83, target_danceability:0.82, target_acousticness:0.18 },
+  "Ambient dreamer": { favorite_genre:"ambient",    favorite_mood:"chill",   target_energy:0.28, target_tempo:62,  target_valence:0.65, target_danceability:0.42, target_acousticness:0.91 },
+};
+
+const NUM_FEATURES = ["target_energy","target_tempo","target_valence","target_danceability","target_acousticness"];
+const NUM_LABELS   = ["Energy","Tempo (BPM)","Valence","Danceability","Acousticness"];
+const NUM_MINS     = [0, 55, 0, 0, 0];
+const NUM_MAXS     = [1, 180, 1, 1, 1];
+const NUM_STEP     = [0.01, 1, 0.01, 0.01, 0.01];
+
+function normalizeTempo(t) { return (t - 55) / (180 - 55); }
+
+function score(song, profile) {
+  let s = 0;
+  s += song.genre === profile.favorite_genre ? 1 : 0;
+  s += song.mood  === profile.favorite_mood  ? 1 : 0;
+  const numericPairs = [
+    [song.energy,       profile.target_energy],
+    [normalizeTempo(song.tempo_bpm), normalizeTempo(profile.target_tempo)],
+    [song.valence,      profile.target_valence],
+    [song.danceability, profile.target_danceability],
+    [song.acousticness, profile.target_acousticness],
+  ];
+  numericPairs.forEach(([v, t]) => { s += 1 - Math.abs(v - t); });
+  return parseFloat((s / 7 * 100).toFixed(1));
+}
+
+const moodColors = { happy:"#fbbf24", chill:"#818cf8", intense:"#f87171", relaxed:"#34d399", focused:"#60a5fa", moody:"#a78bfa" };
+const genreColors = { pop:"#f472b6", lofi:"#818cf8", rock:"#f87171", ambient:"#34d399", jazz:"#fbbf24", synthwave:"#a78bfa", "indie pop":"#fb923c" };
+const gc = g => genreColors[g] || "#94a3b8";
+const mc = m => moodColors[m]  || "#94a3b8";
+
+export default function App() {
+  const [profile, setProfile] = useState({ ...PRESETS["Chill lofi fan"] });
+  const [activePreset, setActivePreset] = useState("Chill lofi fan");
+  const [showProfile, setShowProfile] = useState(true);
+
+  const ranked = useMemo(() => {
+    return [...songs].map(s => ({ ...s, score: score(s, profile) })).sort((a,b) => b.score - a.score);
+  }, [profile]);
+
+  const setVal = (k, v) => { setProfile(p => ({ ...p, [k]: v })); setActivePreset(null); };
+  const applyPreset = name => { setProfile({ ...PRESETS[name] }); setActivePreset(name); };
+
+  const top = ranked[0];
+  const bottom = ranked[ranked.length - 1];
+  const spread = (top.score - bottom.score).toFixed(1);
+
+  return (
+    <div style={{ fontFamily: "'Inter', sans-serif", background: "#0f172a", minHeight: "100vh", color: "#e2e8f0", padding: "20px 16px" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#f8fafc", margin: "0 0 4px" }}>🎯 Taste Profile Builder</h1>
+          <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>Define your preferences → see how every song scores in real time</p>
+        </div>
+
+        {/* Preset pills */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+          {Object.keys(PRESETS).map(name => (
+            <button key={name} onClick={() => applyPreset(name)} style={{
+              padding: "5px 14px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontSize: 12, fontWeight: 600,
+              borderColor: activePreset === name ? "#818cf8" : "#1e293b",
+              background: activePreset === name ? "#818cf822" : "#1e293b",
+              color: activePreset === name ? "#a5b4fc" : "#64748b",
+            }}>{name}</button>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 20 }}>
+
+          {/* Left: Profile Editor */}
+          <div>
+            <div style={{ background: "#1e293b", borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid #0f172a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>Your taste profile</span>
+                <button onClick={() => setShowProfile(p => !p)} style={{ background: "none", border: "none", color: "#475569", cursor: "pointer", fontSize: 12 }}>{showProfile ? "▲ hide" : "▼ show"}</button>
+              </div>
+              {showProfile && (
+                <div style={{ padding: "16px" }}>
+                  {/* Categorical */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, color: "#475569", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Categorical</div>
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Favorite genre</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {GENRES.map(g => (
+                          <button key={g} onClick={() => setVal("favorite_genre", g)} style={{
+                            padding: "3px 10px", borderRadius: 10, border: "1px solid", cursor: "pointer", fontSize: 11,
+                            borderColor: profile.favorite_genre === g ? gc(g) : "#1e293b",
+                            background: profile.favorite_genre === g ? gc(g) + "33" : "#0f172a",
+                            color: profile.favorite_genre === g ? gc(g) : "#475569",
+                          }}>{g}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Favorite mood</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {MOODS.map(m => (
+                          <button key={m} onClick={() => setVal("favorite_mood", m)} style={{
+                            padding: "3px 10px", borderRadius: 10, border: "1px solid", cursor: "pointer", fontSize: 11,
+                            borderColor: profile.favorite_mood === m ? mc(m) : "#1e293b",
+                            background: profile.favorite_mood === m ? mc(m) + "33" : "#0f172a",
+                            color: profile.favorite_mood === m ? mc(m) : "#475569",
+                          }}>{m}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Numeric */}
+                  <div>
+                    <div style={{ fontSize: 11, color: "#475569", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Numeric targets</div>
+                    {NUM_FEATURES.map((k, i) => {
+                      const v = profile[k];
+                      const display = k === "target_tempo" ? Math.round(v) : v.toFixed(2);
+                      return (
+                        <div key={k} style={{ marginBottom: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                            <span style={{ fontSize: 12, color: "#64748b" }}>{NUM_LABELS[i]}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc" }}>{display}</span>
+                          </div>
+                          <input type="range" min={NUM_MINS[i]} max={NUM_MAXS[i]} step={NUM_STEP[i]} value={v}
+                            onChange={e => setVal(k, parseFloat(e.target.value))}
+                            style={{ width: "100%", accentColor: "#818cf8" }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Profile dict display */}
+                  <div style={{ background: "#0f172a", borderRadius: 8, padding: 12, marginTop: 4 }}>
+                    <div style={{ fontSize: 10, color: "#334155", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>profile dict</div>
+                    <pre style={{ fontSize: 11, color: "#64748b", margin: 0, lineHeight: 1.6 }}>{
+`{
+  "favorite_genre": "${profile.favorite_genre}",
+  "favorite_mood":  "${profile.favorite_mood}",
+  "target_energy":  ${profile.target_energy.toFixed(2)},
+  "target_tempo":   ${Math.round(profile.target_tempo)},
+  "target_valence": ${profile.target_valence.toFixed(2)},
+  "target_dance":   ${profile.target_danceability.toFixed(2)},
+  "target_acoustic":${profile.target_acousticness.toFixed(2)}
+}`}</pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Answer box */}
+            <div style={{ background: "#1e293b", borderRadius: 12, padding: 16, marginTop: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#34d399", marginBottom: 8 }}>✅ Is this profile specific enough?</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.7 }}>
+                <strong style={{ color: "#e2e8f0" }}>Score spread: {spread} pts</strong><br/>
+                {parseFloat(spread) >= 30
+                  ? "✓ Strong differentiation — the profile separates songs well across all dimensions."
+                  : parseFloat(spread) >= 15
+                  ? "⚠ Moderate differentiation — try adjusting numeric targets further apart."
+                  : "✗ Weak differentiation — too many features match too many songs."}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
+                Genre + mood alone: 2/7 dimensions<br/>
+                With numerics: 7/7 dimensions<br/>
+                <span style={{ color: "#818cf8" }}>→ Multi-dimensional profiles prevent false matches.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Ranked songs */}
+          <div>
+            <div style={{ background: "#1e293b", borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid #0f172a" }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>Songs ranked by match score</span>
+              </div>
+              {ranked.map((s, i) => {
+                const pct = ((s.score / 100) * 100).toFixed(0);
+                const isTop = i === 0;
+                const isBot = i === ranked.length - 1;
+                return (
+                  <div key={s.id} style={{
+                    padding: "10px 16px",
+                    borderTop: i > 0 ? "1px solid #0f172a" : "none",
+                    background: isTop ? "rgba(52,211,153,0.05)" : isBot ? "rgba(248,113,113,0.04)" : "transparent",
+                    display: "flex", alignItems: "center", gap: 12
+                  }}>
+                    <span style={{ fontSize: 13, color: "#334155", width: 18, textAlign: "right" }}>#{i+1}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</span>
+                        <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 10, background: gc(s.genre) + "22", color: gc(s.genre), whiteSpace: "nowrap" }}>{s.genre}</span>
+                        <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 10, background: mc(s.mood) + "22", color: mc(s.mood), whiteSpace: "nowrap" }}>{s.mood}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1, background: "#0f172a", borderRadius: 4, height: 5, overflow: "hidden" }}>
+                          <div style={{ width: pct + "%", height: "100%", borderRadius: 4,
+                            background: isTop ? "#34d399" : isBot ? "#f87171" : "#818cf8" }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: isTop ? "#34d399" : isBot ? "#f87171" : "#818cf8", width: 42, textAlign: "right" }}>{s.score}%</span>
+                      </div>
+                    </div>
+                    {/* Mini feature comparison */}
+                    <div style={{ display: "flex", gap: 3 }}>
+                      {[
+                        [s.energy, profile.target_energy],
+                        [normalizeTempo(s.tempo_bpm), normalizeTempo(profile.target_tempo)],
+                        [s.valence, profile.target_valence],
+                        [s.danceability, profile.target_danceability],
+                        [s.acousticness, profile.target_acousticness],
+                      ].map(([v, t], fi) => {
+                        const diff = Math.abs(v - t);
+                        const bg = diff < 0.1 ? "#34d39966" : diff < 0.25 ? "#fbbf2466" : "#f8717166";
+                        return <div key={fi} style={{ width: 6, height: 28, borderRadius: 3, background: bg }} title={["E","T","V","D","A"][fi]} />;
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ padding: "8px 16px", borderTop: "1px solid #0f172a" }}>
+                <span style={{ fontSize: 11, color: "#334155" }}>Mini bars: green = close match · yellow = near · red = far &nbsp;|&nbsp; E · T · V · D · A</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
